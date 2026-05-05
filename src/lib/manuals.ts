@@ -67,6 +67,28 @@ export const manuals: Record<string, string> = {
   // Advanced & Fun
   top: "NAME\n       top - display browser system processes\n\nSYNOPSIS\n       top\n\nDESCRIPTION\n       Provides a dynamic real-time view of the browser's JavaScript heap memory, session uptime, and logical CPU cores.",
   neofetch: "NAME\n       neofetch - a fast, highly customizable system info script\n\nSYNOPSIS\n       neofetch\n\nDESCRIPTION\n       Displays information about your operating system, software and hardware in an aesthetic and visually pleasing way.",
-  curl: "NAME\n       curl - transfer a URL\n\nSYNOPSIS\n       curl [options...] <url>\n\nDESCRIPTION\n       Simulates fetching data from a given URL. Often used to test APIs. Includes an automatic CORS-bypass proxy fallback for cross-origin requests.\n\nOPTIONS\n       <span class=\"text-yellow-300\">-X</span>, <span class=\"text-yellow-300\">--request</span> <command>   Specify request command to use (GET, POST, PUT, etc)\n       <span class=\"text-yellow-300\">-d</span>, <span class=\"text-yellow-300\">--data</span> <data>         HTTP POST data\n       <span class=\"text-yellow-300\">-H</span>, <span class=\"text-yellow-300\">--header</span> <header>     Pass custom header(s) to server",
-  matrix: "NAME\n       matrix - enter the matrix\n\nSYNOPSIS\n       matrix\n\nDESCRIPTION\n       Renders an HTML5 Canvas-based digital rain effect. A visual Easter egg demonstrating frontend animation capabilities."
+  curl: `NAME
+       curl - transfer a URL
+
+SYNOPSIS
+       curl [options...] <url>
+
+DESCRIPTION
+       Simulates fetching data from a given URL. Often used to test APIs. Includes an automatic CORS-bypass proxy fallback for cross-origin requests.
+
+OPTIONS
+       <span class="text-yellow-300">-X</span>, <span class="text-yellow-300">--request</span> <command>   Specify request command to use (GET, POST, PUT, etc)
+       <span class="text-yellow-300">-d</span>, <span class="text-yellow-300">--data</span> <data>         HTTP POST data
+       <span class="text-yellow-300">-H</span>, <span class="text-yellow-300">--header</span> <header>     Pass custom header(s) to server
+
+EXAMPLES
+       Try fetching my real GitHub profile data:
+       <span class="text-green-400">curl https://api.github.com/users/PrithwisK07</span>
+
+       Fetch my public repositories to see my code:
+       <span class="text-green-400">curl https://api.github.com/users/PrithwisK07/repos</span>
+
+       Test a POST request payload:
+       <span class="text-green-400">curl -X POST -d "Hello Prithwis!" https://testing.requestcatcher.com/test</span>`,
+       matrix: "NAME\n       matrix - enter the matrix\n\nSYNOPSIS\n       matrix\n\nDESCRIPTION\n       Renders an HTML5 Canvas-based digital rain effect. A visual Easter egg demonstrating frontend animation capabilities."
 };
