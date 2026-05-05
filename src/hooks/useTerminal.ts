@@ -14,7 +14,7 @@ export function useTerminal() {
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [cwd, setCwd] = useState<string>('/home/user');
 
-  const execute = (cmd: string) => {
+  const execute = async (cmd: string) => {
     if (cmd.trim() !== '') {
       setCommandBuffer((prev) => [...prev, cmd]);
     }
@@ -26,7 +26,7 @@ export function useTerminal() {
       clearTerminal: () => setHistory([])
     };
 
-    const output = parseAndExecute(cmd, context);
+    const output = await parseAndExecute(cmd, context);
     
     if (cmd !== 'clear') {
       setHistory((prev) => [...prev, { command: cmd, output: output || undefined, cwd }]);
