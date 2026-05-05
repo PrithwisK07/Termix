@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getNodeByPath, resolvePath, createNode, removeNode, VFSNode } from './vfs';
+import { manuals, helpText } from './manuals';
 
 export interface CommandContext {
   cwd: string;
@@ -15,7 +16,8 @@ export interface CommandOutput {
   component?: React.ReactNode;
 }
 
-type CommandHandler = (args: string[], ctx: CommandContext) => CommandOutput | void;
+// Updated type to allow for asynchronous commands like fetch/curl
+type CommandHandler = (args: string[], ctx: CommandContext) => CommandOutput | void | Promise<CommandOutput | void>;
 
 // --- HELPER: Tokenizer ---
 // Safely splits arguments, keeping quoted strings together 
@@ -39,46 +41,55 @@ function tokenize(input: string): string[] {
   return tokens;
 }
 
-// --- REACT COMPONENTS FOR ADVANCED COMMANDS ---
-
 const TopMonitor = () => {
-  const [uptime, setUptime] = useState(0);
-  const [cpuStats, setCpuStats] = useState({ pid1: '12.4', pid2: '8.1' });
-  
+  const [stats, setStats] = useState({ uptime: 0, memory: 0, maxMemory: 0, pid1: '0.0' });
+  const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4;
+
   useEffect(() => {
     const timer = setInterval(() => {
-      setUptime(prev => prev + 1);
-      // FIXED: Move Math.random() into state updates to keep render pure
-      setCpuStats({
-        pid1: (12.4 + Math.random() * 2).toFixed(1),
-        pid2: (8.1 + Math.random() * 2).toFixed(1)
+      // Access browser performance memory (works in Chrome/Edge/Brave)
+      const mem = (performance as any).memory;
+      
+      setStats({
+        uptime: Math.floor(performance.now() / 1000), // Real session uptime in seconds
+        memory: mem ? Math.round(mem.usedJSHeapSize / 1024 / 1024) : 64, // Fallback to 64MB if unsupported
+        maxMemory: mem ? Math.round(mem.jsHeapSizeLimit / 1024 / 1024) : 512,
+        pid1: (Math.random() * 2 + 1).toFixed(1) // Minor fluctuation for the active UI thread
       });
     }, 1000);
     return () => clearInterval(timer);
   }, []);
 
+  const formatUptime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}m ${s}s`;
+  };
+
   return (
-    <div className="text-gray-300 w-full max-w-2xl bg-black p-2 border border-gray-700 rounded">
-      <div className="flex justify-between font-bold mb-2">
-        <span>top - {new Date().toLocaleTimeString()} up {uptime} min, 1 user, load avg: 0.42, 0.35</span>
+    <div className="text-gray-300 w-full max-w-2xl bg-black p-2 border border-gray-700 rounded text-sm">
+      <div className="flex justify-between font-bold mb-2 text-gray-100">
+        <span>top - session up {formatUptime(stats.uptime)}, {cores} logical cores</span>
       </div>
-      <div className="mb-2">Tasks: 36 total, 1 running, 35 sleeping, 0 stopped</div>
+      <div className="mb-2 text-gray-400">
+        JS Heap: {stats.memory} MB / {stats.maxMemory} MB allocated
+      </div>
       <table className="w-full text-left table-fixed">
         <thead className="bg-gray-800 text-white">
           <tr>
-            <th className="w-16">PID</th><th className="w-20">USER</th>
-            <th className="w-16">CPU%</th><th className="w-16">MEM%</th>
-            <th>COMMAND</th>
+            <th className="w-16 pl-1">PID</th><th className="w-20">USER</th>
+            <th className="w-16">CPU%</th><th className="w-20">MEM(MB)</th>
+            <th>PROCESS / THREAD</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>101</td><td>user</td><td>{cpuStats.pid1}</td><td>24.5</td><td>portfolio-shell</td></tr>
-          <tr><td>102</td><td>user</td><td>{cpuStats.pid2}</td><td>12.1</td><td>node server.js</td></tr>
-          <tr><td>103</td><td>user</td><td>3.2</td><td>8.3</td><td>code editor</td></tr>
-          <tr><td>104</td><td>user</td><td>1.5</td><td>2.6</td><td>system monitor</td></tr>
+          <tr><td className="pl-1">101</td><td>browser</td><td>{stats.pid1}</td><td>{stats.memory}</td><td>React DOM UI Thread</td></tr>
+          <tr><td className="pl-1">102</td><td>system</td><td>0.1</td><td>12</td><td>V8 Garbage Collector</td></tr>
+          <tr><td className="pl-1">103</td><td>network</td><td>0.0</td><td>8</td><td>Fetch API Monitor</td></tr>
+          <tr><td className="pl-1">104</td><td>vfs</td><td>0.0</td><td>4</td><td>Virtual File System</td></tr>
         </tbody>
       </table>
-      <div className="mt-2 text-yellow-300 animate-pulse">[Press Ctrl+C to exit top - Simulated]</div>
+      <div className="mt-2 text-yellow-300 animate-pulse">[Press Ctrl+C to exit top]</div>
     </div>
   );
 };
@@ -121,25 +132,23 @@ const MatrixRain = () => {
   return <canvas ref={canvasRef} className="border border-green-900 rounded my-2" />;
 };
 
-// --- COMMAND HANDLERS ---
-
 export const commands: Record<string, CommandHandler> = {
-  help: () => ({
-    text: `Available commands:
-  ls       - List directory contents
-  cd       - Change directory
-  pwd      - Print working directory
-  cat      - Concatenate and print files
-  clear    - Clear terminal output
-  whoami   - Print current user
-  about    - Display author info
-  skills   - List technical skills (try --graph)
-  projects - List portfolio projects
-  neofetch - System information
-  tree     - View directory structure
-  top      - View simulated system processes
-  matrix   - Enter the matrix`,
-  }),
+  help: () => {
+    return { text: helpText, isHTML: true };
+  },
+
+  man: (args) => {
+    if (args.length === 0) return { text: "What manual page do you want?\nFor example, try 'man ls'." };
+    
+    const cmd = args[0];
+    const page = manuals[cmd];
+    
+    if (!page) {
+      return { text: `No manual entry for ${cmd}\nPerhaps you meant 'help'?` };
+    }
+
+    return { text: page, isHTML: true };
+  },
 
   pwd: (_, { cwd }) => ({ text: cwd }),
   
@@ -303,18 +312,42 @@ export const commands: Record<string, CommandHandler> = {
   },
 
   neofetch: () => {
+    let os = 'Unknown OS';
+    let browser = 'Web Browser';
+    let resolution = 'Unknown';
+    let host = 'localhost';
+    let cores: string | number = 'Unknown';
+
+    if (typeof navigator !== 'undefined') {
+      const userAgent = navigator.userAgent.toLowerCase();
+      if (userAgent.includes('win')) os = 'Windows';
+      else if (userAgent.includes('mac')) os = 'macOS';
+      else if (userAgent.includes('linux')) os = 'Linux';
+      else if (userAgent.includes('android')) os = 'Android';
+      else if (userAgent.includes('like mac')) os = 'iOS';
+
+      const isChrome = userAgent.includes('chrome');
+      const isFirefox = userAgent.includes('firefox');
+      const isSafari = userAgent.includes('safari') && !isChrome;
+      browser = isChrome ? 'Chrome' : isFirefox ? 'Firefox' : isSafari ? 'Safari' : 'Web Browser';
+      cores = navigator.hardwareConcurrency || 'Unknown';
+    }
+
+    if (typeof window !== 'undefined') {
+      resolution = `${window.screen.width}x${window.screen.height}`;
+      host = window.location.hostname || 'localhost';
+    }
+
     const asciiArt = `
 <span class="text-green-400">       A       </span>
 <span class="text-green-400">      / \\      </span>   <span class="text-green-400 font-bold">user@portfolio</span>
 <span class="text-green-400">     /   \\     </span>   -----------------
-<span class="text-green-400">    /_____\\    </span>   <span class="text-blue-400 font-bold">OS:</span> Custom Linux x86_64
-<span class="text-green-400">   /       \\   </span>   <span class="text-blue-400 font-bold">Host:</span> Portfolio Terminal
-<span class="text-green-400">  /         \\  </span>   <span class="text-blue-400 font-bold">Kernel:</span> 1.0.0-portfolio
-<span class="text-green-400"> /           \\ </span>   <span class="text-blue-400 font-bold">Uptime:</span> 2 hours, 15 mins
-<span class="text-green-400">/             \\</span>   <span class="text-blue-400 font-bold">Shell:</span> portfolio-shell 1.0.0
-                  <span class="text-blue-400 font-bold">Terminal:</span> web-terminal
-                  <span class="text-blue-400 font-bold">CPU:</span> WebAssembly Virtual CPU
-                  <span class="text-blue-400 font-bold">Memory:</span> 128MB / 512MB
+<span class="text-green-400">    /_____\\    </span>   <span class="text-blue-400 font-bold">OS:</span> ${os}
+<span class="text-green-400">   /       \\   </span>   <span class="text-blue-400 font-bold">Host:</span> ${host}
+<span class="text-green-400">  /         \\  </span>   <span class="text-blue-400 font-bold">Browser:</span> ${browser}
+<span class="text-green-400"> /           \\ </span>   <span class="text-blue-400 font-bold">Resolution:</span> ${resolution}
+<span class="text-green-400">/             \\</span>   <span class="text-blue-400 font-bold">CPU Cores:</span> ${cores} logical cores
+                  <span class="text-blue-400 font-bold">Engine:</span> V8 / SpiderMonkey / WebKit
     `;
     
     const palette = `
@@ -407,15 +440,78 @@ real-world products.
     return { text: `<span class="text-blue-400 font-bold">ai-chatbot</span>  <span class="text-blue-400 font-bold">dev-portfolio</span>  <span class="text-blue-400 font-bold">task-manager</span>\n\nType <span class="text-yellow-300">cd projects</span> to explore.`, isHTML: true };
   },
 
-  curl: (args) => {
-    if (args.length === 0) return { text: "curl: try 'curl <url>'", isError: true };
-    if (args[0].includes('github.com')) {
-      return { 
-        text: `{\n  "login": "user",\n  "name": "Arjun",\n  "public_repos": 42,\n  "followers": 128\n}`,
-        isHTML: false 
-      };
+  curl: async (args) => {
+    if (args.length === 0) return { text: "curl: try 'curl <url>' or 'man curl'", isError: true };
+    
+    let method = 'GET';
+    let body: BodyInit | undefined = undefined;
+    const headers: Record<string, string> = {};
+    let url = '';
+
+    // Simple Argument Parser
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === '-X' || args[i] === '--request') {
+        method = args[++i].toUpperCase();
+      } else if (args[i] === '-d' || args[i] === '--data') {
+        body = args[++i];
+        if (method === 'GET') method = 'POST'; // curl defaults to POST if -d is used
+        if (!headers['Content-Type']) headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      } else if (args[i] === '-H' || args[i] === '--header') {
+        const headerParts = args[++i].split(':');
+        if (headerParts.length >= 2) {
+          headers[headerParts[0].trim()] = headerParts.slice(1).join(':').trim();
+        }
+      } else if (!args[i].startsWith('-')) {
+        url = args[i];
+      }
     }
-    return { text: `Fetching data from ${args[0]}...\n<HTML><HEAD><TITLE>301 Moved</TITLE></HEAD></HTML>` };
+
+    if (!url) return { text: "curl: no URL specified", isError: true };
+    if (!url.startsWith('http')) url = 'https://' + url;
+
+    let response;
+    let time = 0;
+    let proxyUsed = false;
+
+    try {
+      const start = performance.now();
+      // 1. Attempt direct connection
+      response = await fetch(url, { method, headers, body });
+      time = Math.round(performance.now() - start);
+    } catch (error) {
+      // 2. If it fails (likely CORS), intercept and fallback to proxy
+      try {
+        const start = performance.now();
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+        proxyUsed = true;
+        response = await fetch(proxyUrl, { method, headers, body });
+        time = Math.round(performance.now() - start);
+      } catch (proxyError) {
+        return { text: `curl: (6) Could not resolve host or proxy failed for: ${url}`, isError: true };
+      }
+    }
+
+    try {
+      const contentType = response.headers.get('content-type');
+      let data = '';
+
+      if (contentType && contentType.includes('application/json')) {
+        const json = await response.json();
+        data = JSON.stringify(json, null, 2);
+      } else {
+        data = await response.text();
+      }
+
+      if (data.length > 5000) {
+          data = data.substring(0, 5000) + '\n\n... [Response truncated due to size]';
+      }
+
+      const proxyText = proxyUsed ? ` <span class="text-yellow-300">(via CORS Proxy)</span>` : '';
+      return { text: `[Fetched in ${time}ms]${proxyText}\n${data}`, isHTML: true };
+      
+    } catch (parseError) {
+      return { text: `curl: Failed to parse response from ${url}`, isError: true };
+    }
   },
 
   top: () => {
@@ -429,7 +525,8 @@ real-world products.
 
 // --- AST PARSER & EXECUTOR ---
 
-export function parseAndExecute(input: string, ctx: CommandContext): CommandOutput | void {
+// Changed to async function
+export async function parseAndExecute(input: string, ctx: CommandContext): Promise<CommandOutput | void> {
   const trimmed = input.trim();
   if (!trimmed) return;
 
@@ -445,7 +542,6 @@ export function parseAndExecute(input: string, ctx: CommandContext): CommandOutp
     const cmdPart = redirSplit[0].trim();
     const redirectTarget = redirSplit[1]?.trim();
 
-    // The 'tokens' error was because this function wasn't properly copied
     const tokens = tokenize(cmdPart);
     const [cmd, ...args] = tokens;
 
@@ -455,14 +551,15 @@ export function parseAndExecute(input: string, ctx: CommandContext): CommandOutp
     }
 
     const currentCtx = { ...ctx, stdin: lastOutput };
-    const result = handler(args, currentCtx);
+    
+    // Await the handler to support async fetch
+    const result = await handler(args, currentCtx);
 
     if (result?.isError) return result;
     
     lastOutput = result?.text || '';
     isHTML = result?.isHTML || false;
 
-    // Support returning components (like top, matrix)
     if (result?.component) {
         return result; 
     }
