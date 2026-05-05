@@ -1,6 +1,6 @@
 import { useState, KeyboardEvent } from 'react';
-import { parseAndExecute, CommandOutput, commands } from '../lib/commands';
-import { getNodeByPath, resolvePath } from '../lib/vfs';
+import { parseAndExecute } from '../lib/commands';
+import { CommandOutput } from '@/lib/commands/types';
 
 export interface TerminalEntry {
   command: string;
@@ -8,11 +8,19 @@ export interface TerminalEntry {
   cwd: string;
 }
 
+export interface PagerState {
+  content: string[];
+  index: number;
+  isHTML?: boolean;
+}
+
 export function useTerminal() {
   const [history, setHistory] = useState<TerminalEntry[]>([]);
   const [commandBuffer, setCommandBuffer] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [cwd, setCwd] = useState<string>('/home/user');
+  
+  const [pager, setPager] = useState<PagerState | null>(null);
 
   const execute = async (cmd: string) => {
     if (cmd.trim() !== '') {
@@ -20,83 +28,41 @@ export function useTerminal() {
     }
     setHistoryIndex(-1);
 
-    const context = {
-      cwd,
-      setCwd,
-      clearTerminal: () => setHistory([])
-    };
-
+    const context = { cwd, setCwd, clearTerminal: () => setHistory([]) };
     const output = await parseAndExecute(cmd, context);
     
     if (cmd !== 'clear') {
-      setHistory((prev) => [...prev, { command: cmd, output: output || undefined, cwd }]);
-    }
-  };
-
-  // --- NEW: Tab Auto-completion Logic ---
-  const handleTabCompletion = (currentInput: string, setInput: (v: string) => void) => {
-    if (!currentInput) return;
-
-    const args = currentInput.split(' ');
-    const isCommand = args.length === 1;
-
-    if (isCommand) {
-      // 1. Command Autocomplete
-      const matches = Object.keys(commands).filter(cmd => cmd.startsWith(args[0]));
-      
-      if (matches.length === 1) {
-        setInput(matches[0] + ' '); // Add a trailing space for convenience
-      } else if (matches.length > 1) {
-        // Print options to history if there are multiple matches
-        setHistory(prev => [
-          ...prev, 
-          { command: currentInput, cwd },
-          { command: '', output: { text: matches.join('  ') }, cwd }
-        ]);
-      }
-    } else {
-      // 2. File/Directory Autocomplete
-      const target = args[args.length - 1];
-      
-      // Determine if they are typing a path like 'projects/ai-' or just 'ai-'
-      const lastSlashIdx = target.lastIndexOf('/');
-      const dirPath = lastSlashIdx !== -1 ? target.substring(0, lastSlashIdx) : '.';
-      const partialName = lastSlashIdx !== -1 ? target.substring(lastSlashIdx + 1) : target;
-      
-      const resolvedDir = resolvePath(cwd, dirPath);
-      const node = getNodeByPath(resolvedDir);
-      
-      if (node && node.type === 'dir' && node.children) {
-        const matches = Object.keys(node.children).filter(name => name.startsWith(partialName));
-        
-        if (matches.length === 1) {
-          const matchNode = node.children[matches[0]];
-          const isDir = matchNode.type === 'dir';
-          
-          // Reconstruct the path safely
-          const newTarget = (dirPath !== '.' ? dirPath + '/' : '') + matches[0] + (isDir ? '/' : '');
-          args[args.length - 1] = newTarget;
-          setInput(args.join(' '));
-        } else if (matches.length > 1) {
-          // Print multiple file options to history
-          setHistory(prev => [
-            ...prev, 
-            { command: currentInput, cwd },
-            { command: '', output: { text: matches.join('  ') }, cwd }
-          ]);
-        }
+      if (output?.pagerContent) {
+        setHistory((prev) => [...prev, { command: cmd, cwd }]); 
+        const rawLines = output.pagerContent.split('\n');
+        setPager({ content: rawLines, index: 0, isHTML: output.isHTML });
+      } else {
+        setHistory((prev) => [...prev, { command: cmd, output: output || undefined, cwd }]);
       }
     }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>, currentInput: string, setInput: (v: string) => void) => {
+    if (pager) {
+      e.preventDefault();
+      const PAGE_SIZE = 24; 
+      const maxIndex = Math.max(0, pager.content.length - PAGE_SIZE);
+
+      if (e.key === 'q' || e.key === 'Q' || (e.ctrlKey && e.key === 'c')) {
+        setPager(null); 
+      } else if (e.key === 'Enter' || e.key === 'ArrowDown') {
+        setPager(p => p ? { ...p, index: Math.min(p.index + 1, maxIndex) } : null);
+      } else if (e.key === ' ' || e.key === 'PageDown') {
+        setPager(p => p ? { ...p, index: Math.min(p.index + PAGE_SIZE, maxIndex) } : null);
+      } else if (e.key === 'ArrowUp') {
+        setPager(p => p ? { ...p, index: Math.max(p.index - 1, 0) } : null); 
+      }
+      return;
+    }
+
     if (e.key === 'Enter') {
       execute(currentInput);
       setInput('');
-    } else if (e.key === 'Tab') {
-      // Intercept Tab key to prevent input from losing focus
-      e.preventDefault();
-      handleTabCompletion(currentInput, setInput);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (commandBuffer.length === 0) return;
@@ -123,5 +89,5 @@ export function useTerminal() {
     }
   };
 
-  return { history, cwd, handleKeyDown };
+  return { history, cwd, handleKeyDown, pager };
 }

@@ -1,3 +1,4 @@
+// src/lib/commands/types.ts
 import React from 'react';
 
 export interface CommandContext {
@@ -12,6 +13,7 @@ export interface CommandOutput {
   isError?: boolean;
   isHTML?: boolean;
   component?: React.ReactNode;
+  pagerContent?: string; // NEW: Tells the engine to open the pager
 }
 
 export type CommandHandler = (

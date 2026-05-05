@@ -38,13 +38,11 @@ export async function parseAndExecute(input: string, ctx: CommandContext): Promi
   if (!trimmed) return;
 
   const pipedCommands = trimmed.split('|').map(cmd => cmd.trim());
-  
   let lastOutput: string | undefined = undefined;
   let isHTML = false;
 
   for (let i = 0; i < pipedCommands.length; i++) {
     const rawCmd = pipedCommands[i];
-    
     const redirSplit = rawCmd.split('>');
     const cmdPart = redirSplit[0].trim();
     const redirectTarget = redirSplit[1]?.trim();
@@ -58,17 +56,21 @@ export async function parseAndExecute(input: string, ctx: CommandContext): Promi
     }
 
     const currentCtx = { ...ctx, stdin: lastOutput };
-    
     const result = await handler(args, currentCtx);
 
     if (result?.isError) return result;
-    
-    lastOutput = result?.text || '';
-    isHTML = result?.isHTML || false;
+
+    // --- FIX: Fast-return for Pager Content ---
+    if (result?.pagerContent) {
+        return result; 
+    }
 
     if (result?.component) {
         return result; 
     }
+
+    lastOutput = result?.text || '';
+    isHTML = result?.isHTML || false;
 
     if (redirectTarget) {
       const targetPath = resolvePath(ctx.cwd, redirectTarget);

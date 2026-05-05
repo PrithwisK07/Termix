@@ -1,4 +1,3 @@
-// src/lib/commands/network.ts
 import { CommandHandler } from "./types";
 
 export const networkCommands: Record<string, CommandHandler> = {
@@ -46,9 +45,15 @@ export const networkCommands: Record<string, CommandHandler> = {
       console.error("Fetch error:", error);
       try {
         const start = performance.now();
-        const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(url);
+        const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
         proxyUsed = true;
-        response = await fetch(proxyUrl, { method, headers, body });
+        
+        const fetchOptions: RequestInit = { method };
+        if (body && method !== 'GET' && method !== 'HEAD') {
+            fetchOptions.body = body;
+        }
+        
+        response = await fetch(proxyUrl, fetchOptions);
         time = Math.round(performance.now() - start);
       } catch (proxyError) {
         console.error("Fetch error:", proxyError);
@@ -68,14 +73,24 @@ export const networkCommands: Record<string, CommandHandler> = {
       } else {
         data = await response.text();
       }
-      if (data.length > 5000)
-        data =
-          data.substring(0, 5000) + "\n\n... [Response truncated due to size]";
+
       const proxyText = proxyUsed
         ? ` <span class="text-yellow-300">(via CORS Proxy)</span>`
         : "";
+      
+      const fullOutput = `[Fetched in ${time}ms]${proxyText}\n${data}`;
+      const lineCount = fullOutput.split('\n').length;
+
+      if (lineCount > 30) {
+        return { 
+          text: '', 
+          pagerContent: fullOutput ,
+          isHTML: true
+        };
+      }
+
       return {
-        text: `[Fetched in ${time}ms]${proxyText}\n${data}`,
+        text: fullOutput,
         isHTML: true,
       };
     } catch (parseError) {
