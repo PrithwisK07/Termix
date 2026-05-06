@@ -81,5 +81,64 @@ real-world products.
 
   projects: () => {
     return { text: `<span class="text-blue-400 font-bold">ai-chatbot</span>  <span class="text-blue-400 font-bold">dev-portfolio</span>  <span class="text-blue-400 font-bold">task-manager</span>\n\nType <span class="text-yellow-300">cd projects</span> to explore.`, isHTML: true };
-  }
+  },
+
+  experience: () => {
+    const text = `
+<span class="text-blue-400 font-bold">Experience Timeline:</span>
+
+<span class="text-green-400">2023 - Present</span> | <span class="text-yellow-300">Full Stack Developer</span>
+  ├── Built scalable web apps using React & Next.js
+  └── Architected backend systems with Node.js & PostgreSQL
+
+<span class="text-green-400">2022 - 2023</span>    | <span class="text-yellow-300">Frontend Engineering Intern</span>
+  ├── Developed responsive UIs for e-commerce platforms
+  └── Optimized bundle sizes reducing load time by 30%
+    `;
+    return { text, isHTML: true };
+  },
+
+  education: () => {
+    const text = `
+<span class="text-blue-400 font-bold">Education:</span>
+B.S. in Computer Science - University Name (2020 - 2024)
+Coursework: Data Structures, Algorithms, Distributed Systems.
+    `;
+    return { text, isHTML: true };
+  },
+
+  contact: (args) => {
+    if (args.includes('--email')) {
+      window.open('mailto:your.email@example.com');
+      return { text: 'Opening mail client...' };
+    }
+    const text = `
+<span class="text-blue-400 font-bold">Contact Info:</span>
+Email:   your.email@example.com
+Discord: your_handle
+Twitter: @your_handle
+
+Tip: Use <span class="text-yellow-300">contact --email</span> to open your mail client directly.
+    `;
+    return { text, isHTML: true };
+  },
+
+  source: () => {
+    setTimeout(() => window.open('https://github.com/PrithwisK07/Termix', '_blank'), 800);
+    return { text: 'Opening terminal source code on GitHub...' };
+  },
+
+  hire: () => {
+    setTimeout(() => window.open('https://calendly.com/your-username', '_blank'), 1000);
+    const text = `
+<span class="text-green-400 font-bold">Awesome! Let's talk.</span>
+Redirecting you to my scheduling page...
+If it didn't open, type: <span class="text-yellow-300">contact</span>
+    `;
+    return { text, isHTML: true };
+  },
+  gui: () => {
+    setTimeout(() => window.open('https://your-standard-portfolio.com', '_blank'), 1000);
+    return { text: 'Launching graphical desktop interface in a new tab...' };
+  },
 };

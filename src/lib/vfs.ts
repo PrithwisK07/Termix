@@ -118,3 +118,27 @@ export function removeNode(cwd: string, path: string, recursive: boolean = false
   delete parentNode.children[targetName];
   return null; 
 }
+
+export function writeToFile(cwd: string, path: string, content: string): string | null {
+  const fullPath = resolvePath(cwd, path);
+  let node = getNodeByPath(fullPath);
+  
+  if (!node) {
+    const error = createNode(cwd, path, 'file');
+    if (error) return error;
+    node = getNodeByPath(fullPath);
+  }
+
+  if (node?.type === 'dir') return `cannot write to '${path}': Is a directory`;
+  
+  if (node && node.type === 'file') {
+    node.content = content;
+    node.size = content.length;
+    
+    const date = new Date();
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    node.dateModified = `${months[date.getMonth()]} ${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+  }
+  
+  return null; 
+}

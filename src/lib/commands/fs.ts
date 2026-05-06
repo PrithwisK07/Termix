@@ -145,5 +145,39 @@ export const fsCommands: Record<string, CommandHandler> = {
 
     const treeOutput = `<span class="text-blue-400 font-bold">.</span>\n${buildTree(rootNode)}\n\n${dirCount} directories, ${fileCount} files`;
     return { text: treeOutput, isHTML: true };
-  }
+  },
+  find: (args, { cwd }) => {
+    let searchPath = cwd;
+    let pattern = '';
+
+    if (args.includes('-name')) {
+      const nameIdx = args.indexOf('-name');
+      pattern = args[nameIdx + 1]?.replace(/['"]/g, '') || '';
+      if (nameIdx > 0) searchPath = resolvePath(cwd, args[0]);
+    } else {
+      pattern = args[0] || '';
+    }
+
+    if (!pattern) return { text: "find: missing search pattern. Try: find . -name 'txt'", isError: true };
+
+    const startNode = getNodeByPath(searchPath);
+    if (!startNode) return { text: `find: '${searchPath}': No such file or directory`, isError: true };
+
+    const results: string[] = [];
+    
+    const traverse = (node: VFSNode, currentPath: string) => {
+      if (node.name.includes(pattern)) results.push(currentPath);
+      if (node.type === 'dir' && node.children) {
+        Object.values(node.children).forEach(child => {
+          const childPath = currentPath === '/' ? '/' + child.name : `${currentPath}/${child.name}`;
+          traverse(child, childPath);
+        });
+      }
+    };
+
+    traverse(startNode, searchPath);
+    
+    if (results.length === 0) return { text: '' };
+    return { text: results.join('\n') };
+  },
 };
