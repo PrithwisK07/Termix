@@ -1,6 +1,7 @@
 import { useState, KeyboardEvent } from 'react';
-import { parseAndExecute } from '../lib/commands';
-import { CommandOutput } from '@/lib/commands/types';
+import { parseAndExecute, commands } from '../lib/commands';
+import { CommandOutput, TerminalTheme } from '../lib/commands/types';
+import { writeToFile, getNodeByPath, resolvePath } from '../lib/vfs';
 
 export interface TerminalEntry {
   command: string;
@@ -14,13 +15,34 @@ export interface PagerState {
   isHTML?: boolean;
 }
 
+export interface EditorState {
+  path: string;
+  content: string;
+  type: 'vim' | 'gedit';
+}
+
 export function useTerminal() {
   const [history, setHistory] = useState<TerminalEntry[]>([]);
   const [commandBuffer, setCommandBuffer] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const [cwd, setCwd] = useState<string>('/home/user');
   
+  // Advanced States
   const [pager, setPager] = useState<PagerState | null>(null);
+  const [editor, setEditor] = useState<EditorState | null>(null);
+  
+  // Theme & Alias States
+  const [theme, setTheme] = useState<TerminalTheme>({
+    name: 'dark',
+    bg: '#1e1e1e',
+    fg: '#e5e7eb'
+  });
+  
+  const [aliases, setAliases] = useState<Record<string, string>>({
+    'll': 'ls -la',
+  });
+
+  const setAlias = (name: string, cmd: string) => setAliases(prev => ({ ...prev, [name]: cmd }));
 
   const execute = async (cmd: string) => {
     if (cmd.trim() !== '') {
@@ -28,16 +50,89 @@ export function useTerminal() {
     }
     setHistoryIndex(-1);
 
-    const context = { cwd, setCwd, clearTerminal: () => setHistory([]) };
+    const context = { 
+      cwd, 
+      setCwd, 
+      clearTerminal: () => setHistory([]), 
+      history, 
+      setTheme, 
+      aliases, 
+      setAlias 
+    };
+
     const output = await parseAndExecute(cmd, context);
     
     if (cmd !== 'clear') {
-      if (output?.pagerContent) {
+      if (output?.editorTarget) {
+        setHistory((prev) => [...prev, { command: cmd, cwd }]);
+        setEditor(output.editorTarget);
+      } else if (output?.pagerContent) {
         setHistory((prev) => [...prev, { command: cmd, cwd }]); 
         const rawLines = output.pagerContent.split('\n');
         setPager({ content: rawLines, index: 0, isHTML: output.isHTML });
       } else {
         setHistory((prev) => [...prev, { command: cmd, output: output || undefined, cwd }]);
+      }
+    }
+  };
+
+  const closeEditor = (newContent?: string) => {
+    if (editor && newContent !== undefined) {
+      const error = writeToFile(cwd, editor.path, newContent);
+      if (error) {
+        setHistory(prev => [...prev, { command: '', output: { text: error, isError: true }, cwd }]);
+      } else {
+        // Output the save message to the terminal!
+        setHistory(prev => [...prev, { command: '', output: { text: `[${editor.type}] Saved ${editor.path} successfully.`, isHTML: false }, cwd }]);
+      }
+    }
+    setEditor(null);
+  };
+
+  // --- TAB AUTO-COMPLETION ---
+  const handleTabCompletion = (currentInput: string, setInput: (v: string) => void) => {
+    if (!currentInput) return;
+
+    const args = currentInput.split(' ');
+    const isCommand = args.length === 1;
+
+    if (isCommand) {
+      const matches = Object.keys(commands).filter(cmd => cmd.startsWith(args[0]));
+      
+      if (matches.length === 1) {
+        setInput(matches[0] + ' ');
+      } else if (matches.length > 1) {
+        setHistory(prev => [
+          ...prev, 
+          { command: currentInput, cwd },
+          { command: '', output: { text: matches.join('  ') }, cwd }
+        ]);
+      }
+    } else {
+      const target = args[args.length - 1];
+      const lastSlashIdx = target.lastIndexOf('/');
+      const dirPath = lastSlashIdx !== -1 ? target.substring(0, lastSlashIdx) : '.';
+      const partialName = lastSlashIdx !== -1 ? target.substring(lastSlashIdx + 1) : target;
+      
+      const resolvedDir = resolvePath(cwd, dirPath);
+      const node = getNodeByPath(resolvedDir);
+      
+      if (node && node.type === 'dir' && node.children) {
+        const matches = Object.keys(node.children).filter(name => name.startsWith(partialName));
+        
+        if (matches.length === 1) {
+          const matchNode = node.children[matches[0]];
+          const isDir = matchNode.type === 'dir';
+          const newTarget = (dirPath !== '.' ? dirPath + '/' : '') + matches[0] + (isDir ? '/' : '');
+          args[args.length - 1] = newTarget;
+          setInput(args.join(' '));
+        } else if (matches.length > 1) {
+          setHistory(prev => [
+            ...prev, 
+            { command: currentInput, cwd },
+            { command: '', output: { text: matches.join('  ') }, cwd }
+          ]);
+        }
       }
     }
   };
@@ -63,6 +158,9 @@ export function useTerminal() {
     if (e.key === 'Enter') {
       execute(currentInput);
       setInput('');
+    } else if (e.key === 'Tab') {
+      e.preventDefault(); 
+      handleTabCompletion(currentInput, setInput);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (commandBuffer.length === 0) return;
@@ -89,5 +187,5 @@ export function useTerminal() {
     }
   };
 
-  return { history, cwd, handleKeyDown, pager };
+  return { history, cwd, handleKeyDown, pager, theme, editor, closeEditor };
 }
