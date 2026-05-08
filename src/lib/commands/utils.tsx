@@ -141,12 +141,26 @@ export const utilsCommands: Record<string, CommandHandler> = {
   },
 
   theme: (args, { setTheme }) => {
-    const predefinedThemes: Record<string, { bg: string, fg: string }> = {
+    const predefinedThemes: Record<string, { bg: string, fg: string, prompt?: string, link?: string, ascii?: string }> = {
       dark: { bg: '#1e1e1e', fg: '#e5e7eb' },
       light: { bg: '#f9fafb', fg: '#111827' },
       dracula: { bg: '#282a36', fg: '#f8f8f2' },
       hacker: { bg: '#000000', fg: '#22c55e' },
-      synthwave: { bg: '#2b213a', fg: '#ff7edb' }
+      synthwave: { bg: '#2b213a', fg: '#ff7edb' },
+      midnight: {
+        bg: '#241528',
+        fg: '#D7D3DC',
+        prompt: '#3AFF7A',
+        link: '#8BE9FD',
+        ascii: '#F1EEE8'
+      },
+      deepspace: {
+        bg: '#00001B',
+        fg: '#C9D0DD',
+        prompt: '#00D9FF',
+        link: '#C084FC',
+        ascii: '#E7EBF2'
+      }
     };
 
     if (args.length === 0) {
@@ -174,7 +188,16 @@ export const utilsCommands: Record<string, CommandHandler> = {
       return { text: `theme: unknown theme '${args[0]}'`, isError: true };
     }
 
-    setTheme({ name: args[0], ...selected });
+    // Apply main background and foreground
+    setTheme({ name: args[0], bg: selected.bg, fg: selected.fg });
+
+    // Apply accent colors directly to the CSS OM so elements can pick them up dynamically
+    if (typeof document !== 'undefined') {
+      document.documentElement.style.setProperty('--color-prompt', selected.prompt || '#4ade80'); // Fallback to green-400
+      document.documentElement.style.setProperty('--color-link', selected.link || '#60a5fa');   // Fallback to blue-400
+      document.documentElement.style.setProperty('--color-ascii', selected.ascii || selected.fg); // Fallback to fg
+    }
+
     return { text: `Theme set to ${args[0]}` };
   },
 

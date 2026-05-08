@@ -319,7 +319,7 @@ DESCRIPTION
        Applies a new CSS color palette to the terminal environment.
 
 PREDEFINED THEMES
-       dark, light, dracula, hacker, synthwave
+       dark, light, dracula, hacker, synthwave, midnight, deepspace
 
 OPTIONS
        <span class="text-yellow-300">--bg</span>       Set background hex color (e.g., #000000)

@@ -190,10 +190,22 @@ export default function TerminalUI() {
                   <Prompt path={entry.cwd} />
                   <span>{entry.command}</span>
                 </div>
+                
                 {entry.output && (
+                  /* 1. CHECK FOR COMPONENT FIRST */
+                  entry.output.component ? (
+                    <div className="mt-1">
+                      {/* Some components like 'matrix' also have text to show above the component */}
+                      {entry.output.text && <div className="mb-2 whitespace-pre-wrap">{entry.output.text}</div>}
+                      {entry.output.component}
+                    </div>
+                  ) : 
+                  /* 2. THEN CHECK FOR HTML */
                   entry.output.isHTML ? (
                     <div className={`mt-1 whitespace-pre-wrap ${entry.output.isError ? 'text-red-400' : ''}`} dangerouslySetInnerHTML={{ __html: entry.output.text }} />
-                  ) : (
+                  ) : 
+                  /* 3. FALLBACK TO STANDARD TEXT */
+                  (
                     <div className={`mt-1 whitespace-pre-wrap ${entry.output.isError ? 'text-red-400' : ''}`}>
                       {entry.output.text}
                     </div>
