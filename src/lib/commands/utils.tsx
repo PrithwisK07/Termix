@@ -141,27 +141,73 @@ export const utilsCommands: Record<string, CommandHandler> = {
   },
 
   theme: (args, { setTheme }) => {
-    const predefinedThemes: Record<string, { bg: string, fg: string, prompt?: string, link?: string, ascii?: string }> = {
-      dark: { bg: '#1e1e1e', fg: '#e5e7eb' },
-      light: { bg: '#f9fafb', fg: '#111827' },
-      dracula: { bg: '#282a36', fg: '#f8f8f2' },
-      hacker: { bg: '#000000', fg: '#22c55e' },
-      synthwave: { bg: '#2b213a', fg: '#ff7edb' },
-      midnight: {
-        bg: '#241528',
-        fg: '#D7D3DC',
-        prompt: '#3AFF7A',
-        link: '#8BE9FD',
-        ascii: '#F1EEE8'
-      },
-      deepspace: {
-        bg: '#00001B',
-        fg: '#C9D0DD',
-        prompt: '#00D9FF',
-        link: '#C084FC',
-        ascii: '#E7EBF2'
-      }
-    };
+    const predefinedThemes: Record<string, { bg: string, fg: string, prompt?: string, link?: string, ascii?: string, donut?: string }> = {
+  dark: {
+    bg: '#1e1e1e',
+    fg: '#e5e7eb',
+    prompt: '#ffffff',
+    link: '#60a5fa',
+    ascii: '#d1d5db',
+    donut:
+      'linear-gradient(180deg, #9ca3af 5%, #e5e7eb 50%, #6b7280 95%)',
+  },
+
+  light: {
+    bg: '#f9fafb',
+    fg: '#111827',
+    prompt: '#2563eb',
+    link: '#7c3aed',
+    ascii: '#374151',
+  },
+
+  dracula: {
+    bg: '#282a36',
+    fg: '#f8f8f2',
+    prompt: '#50fa7b',
+    link: '#8be9fd',
+    ascii: '#f1fa8c',
+    donut:
+      'linear-gradient(180deg, #ff79c6 5%, #bd93f9 50%, #8be9fd 95%)',
+  },
+
+  hacker: {
+    bg: '#000000',
+    fg: '#c7ffd3',
+    prompt: '#00ff66',
+    link: '#00d9ff',
+    ascii: '#39ff88',
+    donut:
+      'linear-gradient(180deg, #00ff66 5%, #00d9ff 50%, #7cffb2 95%)',
+  },
+
+  synthwave: {
+    bg: '#2b213a',
+    fg: '#ff7edb',
+    prompt: '#36d2ff',
+    link: '#f9a826',
+    ascii: '#ffffff',
+    donut:
+      'linear-gradient(180deg, #f9a826 5%, #ff7edb 50%, #36d2ff 95%)',
+  },
+
+  midnight: {
+    bg: '#241528',
+    fg: '#fcf0d7',
+    prompt: '#3AFF7A',
+    link: '#8BE9FD',
+    ascii: '#F1EEE8',
+  },
+
+  deepspace: {
+    bg: '#00001B',
+    fg: '#ffffff',
+    prompt: '#00D9FF',
+    link: '#C084FC',
+    ascii: '#E7EBF2',
+    donut:
+      'linear-gradient(180deg, #00D9FF 5%, #C084FC 50%, #E7EBF2 95%)',
+  },
+};
 
     if (args.length === 0) {
       const names = Object.keys(predefinedThemes).join(', ');
@@ -196,6 +242,11 @@ export const utilsCommands: Record<string, CommandHandler> = {
       document.documentElement.style.setProperty('--color-prompt', selected.prompt || '#4ade80'); // Fallback to green-400
       document.documentElement.style.setProperty('--color-link', selected.link || '#60a5fa');   // Fallback to blue-400
       document.documentElement.style.setProperty('--color-ascii', selected.ascii || selected.fg); // Fallback to fg
+      
+      document.documentElement.style.setProperty(
+        '--color-donut', 
+        selected.donut || 'linear-gradient(180deg, #fde047 5%, #f97316 25%, #ef4444 50%, #be185d 75%, #7e22ce 95%)'
+      );
     }
 
     return { text: `Theme set to ${args[0]}` };

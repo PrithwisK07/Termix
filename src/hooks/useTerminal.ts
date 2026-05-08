@@ -35,7 +35,7 @@ export function useTerminal() {
   const [theme, setTheme] = useState<TerminalTheme>({
     name: 'dark',
     bg: '#1e1e1e',
-    fg: '#e5e7eb'
+    fg: '#fff9ed'
   });
   
   const [aliases, setAliases] = useState<Record<string, string>>({

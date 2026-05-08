@@ -2,12 +2,86 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTerminal } from '../hooks/useTerminal';
 
+// --- ASCII DONUT COMPONENT ---
+const AsciiDonut = () => {
+  const preRef = useRef<HTMLPreElement>(null);
+
+  useEffect(() => {
+    let A = 0, B = 0;
+    
+    const interval = setInterval(() => {
+      const b = [];
+      const z = [];
+      A += 0.07;
+      B += 0.03;
+      
+      const cA = Math.cos(A), sA = Math.sin(A), cB = Math.cos(B), sB = Math.sin(B);
+      
+      for (let k = 0; k < 1760; k++) {
+        b[k] = k % 80 === 79 ? "\n" : " ";
+        z[k] = 0;
+      }
+      
+      for (let j = 0; j < 6.28; j += 0.07) {
+        const ct = Math.cos(j), st = Math.sin(j);
+        for (let i = 0; i < 6.28; i += 0.02) {
+          const sp = Math.sin(i), cp = Math.cos(i),
+            h = ct + 2,
+            D = 1 / (sp * h * sA + st * cA + 5),
+            t = sp * h * cA - st * sA;
+
+          const x = 0 | (40 + 30 * D * (cp * h * cB - t * sB)),
+            y = 0 | (12 + 15 * D * (cp * h * sB + t * cB)),
+            o = x + 80 * y,
+            N = 0 | (8 * ((st * sA - sp * ct * cA) * cB - sp * ct * sA - st * cA - cp * ct * sB));
+            
+          if (y < 22 && y >= 0 && x >= 0 && x < 79 && D > z[o]) {
+            z[o] = D;
+            b[o] = ".,-~:;=!*#$@"[N > 0 ? N : 0];
+          }
+        }
+      }
+      
+      if (preRef.current) {
+        preRef.current.innerHTML = b.join("");
+      }
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center justify-center opacity-80 transition-opacity hover:opacity-100">
+      <pre 
+        ref={preRef} 
+        className="font-mono text-[10px] leading-[10px] sm:text-xs sm:leading-[12px]"
+        style={{ 
+          // 1. Define the Sunset Gradient with a CSS Variable fallback for theme responsiveness
+          backgroundImage: 'var(--color-donut, linear-gradient(180deg, #fde047 5%, #f97316 25%, #ef4444 50%, #be185d 75%, #7e22ce 95%))',
+          // 2. Clip the background to the text shape
+          WebkitBackgroundClip: 'text',
+          backgroundClip: 'text',
+          // 3. Make the actual text transparent so the background gradient shows through
+          WebkitTextFillColor: 'transparent',
+          color: 'transparent',
+          display: 'inline-block' 
+        }}
+      />
+      {/* The text below remains unaffected by the gradient and strictly follows the theme prompt color */}
+      <div className="mt-4 text-[10px] tracking-widest uppercase opacity-40 font-bold" style={{ color: 'var(--color-prompt, #4ade80)' }}>
+        System Diagnostics Active
+      </div>
+    </div>
+  );
+};
+
+
 // --- TERMINAL PROMPT COMPONENT ---
 const Prompt = ({ path }: { path: string }) => (
-  <span className="flex gap-2 font-mono">
-    <span className="text-green-400 font-bold">user@portfolio</span>
+  <span className="flex gap-2 font-mono shrink-0">
+    <span className="font-bold" style={{ color: 'var(--color-prompt, #4ade80)' }}>user@portfolio</span>
     <span className="text-white">:</span>
-    <span className="text-blue-400 font-bold">{path.replace('/home/user', '~')}</span>
+    <span className="font-bold" style={{ color: 'var(--color-link, #60a5fa)' }}>{path.replace('/home/user', '~')}</span>
     <span className="text-white">$</span>
   </span>
 );
@@ -20,7 +94,7 @@ const GeditOverlay = ({ path, initialContent, onClose }: { path: string, initial
   return (
     <div 
       className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-      onClick={(e) => e.stopPropagation()} // STOP focus stealing
+      onClick={(e) => e.stopPropagation()} 
     >
       <div className={`bg-[#1e1e1e] flex flex-col rounded-xl border border-gray-600 shadow-2xl overflow-hidden font-sans transition-all duration-200 ${isMaximized ? 'w-full h-full' : 'w-full max-w-3xl h-[80vh]'}`}>
         <div className="bg-[#2d2d2d] px-4 py-2 flex justify-between items-center border-b border-gray-600">
@@ -52,20 +126,19 @@ const VimOverlay = ({ path, initialContent, onClose }: { path: string, initialCo
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Force strict focus based on Vim mode
   useEffect(() => {
     if (mode === 'INSERT') textareaRef.current?.focus();
     else containerRef.current?.focus();
   }, [mode]);
 
   const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // STOP focus stealing
+    e.stopPropagation();
     if (mode === 'INSERT') textareaRef.current?.focus();
     else containerRef.current?.focus();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    e.stopPropagation(); // STOP keys from bleeding into terminal buffer
+    e.stopPropagation();
     
     if (mode === 'NORMAL') {
       if (e.key === 'i' || e.key === 'I') {
@@ -144,23 +217,36 @@ export default function TerminalUI() {
   
   const { history, cwd, handleKeyDown, pager, theme, editor, closeEditor } = useTerminal();
 
+  // --- BOOT SEQUENCE STATE ---
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [bootComplete, setBootComplete] = useState(false);
+
+  useEffect(() => {
+    const fadeTimer = setTimeout(() => setShowWelcome(true), 100);
+    const bootTimer = setTimeout(() => setBootComplete(true), 1500);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(bootTimer);
+    };
+  }, []);
+
   useEffect(() => {
     if (containerRef.current && !pager && !editor) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [history, input, pager, editor]);
+  }, [history, input, pager, editor, showWelcome, bootComplete]);
 
-  // FIX: Only focus the background terminal input if NO overlays are active
   const focusInput = () => {
-    if (!pager && !editor) {
+    if (!editor && bootComplete) {
         inputRef.current?.focus();
     }
   };
-  useEffect(() => focusInput(), [pager, editor]);
+  useEffect(() => focusInput(), [pager, editor, bootComplete]);
 
   return (
     <div 
-      className="min-h-screen font-mono p-4 sm:p-8 cursor-text relative"
+      className="min-h-screen font-mono p-4 sm:p-8 cursor-text relative transition-colors duration-300"
       style={{ backgroundColor: theme.bg, color: theme.fg }}
       onClick={focusInput}
     >
@@ -174,89 +260,100 @@ export default function TerminalUI() {
         <VimOverlay path={editor.path} initialContent={editor.content} onClose={closeEditor} />
       )}
 
-      {/* RENDER TERMINAL WINDOW */}
-      <div className={`max-w-4xl mx-auto h-[90vh] overflow-y-auto custom-scrollbar ${editor?.type === 'vim' ? 'hidden' : 'block'}`} ref={containerRef}>
+      {/* RENDER MAIN LAYOUT */}
+      <div className={`max-w-7xl mx-auto h-[90vh] flex gap-4 lg:gap-8 ${editor?.type === 'vim' ? 'hidden' : 'flex'}`}>
         
-        {!pager && (
-          <>
-            <div className="mb-4">
-              <p>Welcome to my interactive portfolio.</p>
-              <p className="opacity-80">Type <span className="text-yellow-300 font-bold">help</span> to see available commands.</p>
-            </div>
-
-            {history.map((entry, idx) => (
-              <div key={idx} className="mb-2">
-                <div className="flex gap-2">
-                  <Prompt path={entry.cwd} />
-                  <span>{entry.command}</span>
+        {/* LEFT COMPARTMENT: TERMINAL WINDOW */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2" ref={containerRef}>
+          
+          {!pager && (
+            <>
+              <div className={`mb-8 transition-opacity duration-1000 ease-in-out ${showWelcome ? 'opacity-100' : 'opacity-0'}`}>                
+                <div className="flex flex-col gap-1 mt-4">
+                  <p>Welcome to NullVoid OS (v1.0.0) - Interactive Terminal Portfolio.</p>
+                  <p className="opacity-80">
+                    Type <span className="font-bold" style={{ color: 'var(--color-prompt, #4ade80)' }}>help</span> to see available commands.
+                  </p>
                 </div>
-                
-                {entry.output && (
-                  /* 1. CHECK FOR COMPONENT FIRST */
-                  entry.output.component ? (
-                    <div className="mt-1">
-                      {/* Some components like 'matrix' also have text to show above the component */}
-                      {entry.output.text && <div className="mb-2 whitespace-pre-wrap">{entry.output.text}</div>}
-                      {entry.output.component}
-                    </div>
-                  ) : 
-                  /* 2. THEN CHECK FOR HTML */
-                  entry.output.isHTML ? (
-                    <div className={`mt-1 whitespace-pre-wrap ${entry.output.isError ? 'text-red-400' : ''}`} dangerouslySetInnerHTML={{ __html: entry.output.text }} />
-                  ) : 
-                  /* 3. FALLBACK TO STANDARD TEXT */
-                  (
-                    <div className={`mt-1 whitespace-pre-wrap ${entry.output.isError ? 'text-red-400' : ''}`}>
-                      {entry.output.text}
-                    </div>
-                  )
+              </div>
+
+              {history.map((entry, idx) => (
+                <div key={idx} className="mb-2">
+                  <div className="flex gap-2">
+                    <Prompt path={entry.cwd} />
+                    <span className="break-all">{entry.command}</span>
+                  </div>
+                  
+                  {entry.output && (
+                    entry.output.component ? (
+                      <div className="mt-1">
+                        {entry.output.text && <div className="mb-2 whitespace-pre-wrap">{entry.output.text}</div>}
+                        {entry.output.component}
+                      </div>
+                    ) : entry.output.isHTML ? (
+                      <div className={`mt-1 whitespace-pre-wrap break-words ${entry.output.isError ? 'text-red-400' : ''}`} dangerouslySetInnerHTML={{ __html: entry.output.text }} />
+                    ) : (
+                      <div className={`mt-1 whitespace-pre-wrap break-words ${entry.output.isError ? 'text-red-400' : ''}`}>
+                        {entry.output.text}
+                      </div>
+                    )
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* INTERACTIVE PAGER VIEW */}
+          {pager && (
+            <div className="h-full flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="whitespace-pre-wrap flex-1 overflow-hidden">
+                {pager.isHTML ? (
+                  <div dangerouslySetInnerHTML={{ __html: pager.content.slice(pager.index, pager.index + 24).join('\n') }} />
+                ) : (
+                  pager.content.slice(pager.index, pager.index + 24).join('\n')
                 )}
               </div>
-            ))}
-          </>
-        )}
-
-        {/* INTERACTIVE PAGER VIEW */}
-        {pager && (
-          <div className="h-full flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="whitespace-pre-wrap flex-1 overflow-hidden">
-              {pager.isHTML ? (
-                <div dangerouslySetInnerHTML={{ __html: pager.content.slice(pager.index, pager.index + 24).join('\n') }} />
-              ) : (
-                pager.content.slice(pager.index, pager.index + 24).join('\n')
-              )}
+              <div className="mt-2 bg-gray-800 text-white inline-block px-2 py-1 w-fit">
+                {pager.index >= pager.content.length - 24 
+                  ? '(END) - Press q to quit' 
+                  : ': (Press Enter to scroll, Space for next page, q to quit)'}
+              </div>
+              <input
+                ref={inputRef}
+                type="text"
+                className="opacity-0 absolute w-0 h-0"
+                onKeyDown={(e) => handleKeyDown(e, input, setInput)}
+                autoFocus
+              />
             </div>
-            <div className="mt-2 bg-gray-800 text-white inline-block px-2 py-1 w-fit">
-              {pager.index >= pager.content.length - 24 
-                ? '(END) - Press q to quit' 
-                : ': (Press Enter to scroll, Space for next page, q to quit)'}
-            </div>
-            <input
-              ref={inputRef}
-              type="text"
-              className="opacity-0 absolute w-0 h-0"
-              onKeyDown={(e) => handleKeyDown(e, input, setInput)}
-            />
-          </div>
-        )}
+          )}
 
-        {/* NORMAL TERMINAL PROMPT */}
+          {/* NORMAL TERMINAL PROMPT - Hides until boot sequence finishes */}
+          {!pager && !editor && bootComplete && (
+            <div className="flex gap-2 items-center mt-2 animate-pulse" style={{ animationIterationCount: 1 }}>
+              <Prompt path={cwd} />
+              <input
+                ref={inputRef}
+                type="text"
+                className="flex-1 bg-transparent outline-none border-none focus:ring-0"
+                style={{ color: theme.fg }}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, input, setInput)}
+                autoCapitalize="off"
+                autoComplete="off"
+                spellCheck="false"
+                autoFocus
+              />
+            </div>
+          )}
+
+        </div>
+
+        {/* RIGHT COMPARTMENT: ASCII DONUT WIDGET */}
         {!pager && !editor && (
-          <div className="flex gap-2 items-center mt-2">
-            <Prompt path={cwd} />
-            <input
-              ref={inputRef}
-              type="text"
-              className="flex-1 bg-transparent outline-none border-none"
-              style={{ color: theme.fg }}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => handleKeyDown(e, input, setInput)}
-              autoCapitalize="off"
-              autoComplete="off"
-              spellCheck="false"
-              autoFocus
-            />
+          <div className="hidden lg:flex flex-col items-center justify-center w-[350px] shrink-0 border-l border-gray-700/30 pl-8 pointer-events-none">
+            <AsciiDonut />
           </div>
         )}
 
