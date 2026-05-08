@@ -45,12 +45,18 @@ export const networkCommands: Record<string, CommandHandler> = {
       console.error("Fetch error:", error);
       try {
         const start = performance.now();
-        const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
+        
+        const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(url);
+        
         proxyUsed = true;
         
-        const fetchOptions: RequestInit = { method };
+        const fetchOptions: RequestInit = { 
+            method,
+            headers 
+        };
+        
         if (body && method !== 'GET' && method !== 'HEAD') {
-            fetchOptions.body = body;
+          fetchOptions.body = body;
         }
         
         response = await fetch(proxyUrl, fetchOptions);
