@@ -26,7 +26,7 @@ export interface CommandOutput {
   editorTarget?: {
     path: string;
     content: string;
-    type: 'vim' | 'gedit';
+    type: 'vim' | 'gedit' | 'mailer';
   };
 }
 

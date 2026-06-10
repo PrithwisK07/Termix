@@ -112,14 +112,24 @@ Coursework: Data Structures, Algorithms, Distributed Systems.
       window.open('mailto:your.email@example.com');
       return { text: 'Opening mail client...' };
     }
+    
+    // NEW: Trigger the Mailer GUI
+    if (args.includes('--dm') || args.includes('--message')) {
+      return {
+        text: '',
+        editorTarget: { path: 'Direct Message', content: '', type: 'mailer' }
+      };
+    }
+
     const text = `
 <span class="text-blue-400 font-bold">Contact Info:</span>
 Email:   your.email@example.com
 Discord: your_handle
 Twitter: @your_handle
 
-Tip: Use <span class="text-yellow-300">contact --email</span> to open your mail client directly.
+Tip: Use <span class="text-yellow-300">contact --email</span> to open your mail client, or <span class="text-yellow-300">contact --dm</span> to send a direct message from here.
     `;
+
     return { text, isHTML: true };
   },
 
