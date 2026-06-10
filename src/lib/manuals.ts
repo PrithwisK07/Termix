@@ -428,7 +428,8 @@ DESCRIPTION
        Displays email, Discord handle, and other social links.
 
 OPTIONS
-       <span class="text-yellow-300">--email</span>                    Automatically opens your system's default mail client`,
+       <span class="text-yellow-300">--email</span>                    Automatically opens your system's default mail client,
+       <span class="text-yellow-300">--dm</span>                       Send a direct message from here`,
 
   hire: `NAME
        hire - schedule an interview
