@@ -18,7 +18,7 @@ export interface PagerState {
 export interface EditorState {
   path: string;
   content: string;
-  type: 'vim' | 'gedit';
+  type: 'vim' | 'gedit' | 'mailer';
 }
 
 export function useTerminal() {
@@ -77,13 +77,21 @@ export function useTerminal() {
   };
 
   const closeEditor = (newContent?: string) => {
-    if (editor && newContent !== undefined) {
-      const error = writeToFile(cwd, editor.path, newContent);
-      if (error) {
-        setHistory(prev => [...prev, { command: '', output: { text: error, isError: true }, cwd }]);
-      } else {
-        // Output the save message to the terminal!
-        setHistory(prev => [...prev, { command: '', output: { text: `[${editor.type}] Saved ${editor.path} successfully.`, isHTML: false }, cwd }]);
+    if (editor) {
+      // 1. Handle Mailer specifically
+      if (editor.type === 'mailer') {
+        if (newContent === 'SENT') {
+          setHistory(prev => [...prev, { command: '', output: { text: `[mailer] Message encrypted and dispatched successfully.`, isHTML: false }, cwd }]);
+        }
+      } 
+      // 2. Handle standard text editors (vim, gedit)
+      else if (newContent !== undefined) {
+        const error = writeToFile(cwd, editor.path, newContent);
+        if (error) {
+          setHistory(prev => [...prev, { command: '', output: { text: error, isError: true }, cwd }]);
+        } else {
+          setHistory(prev => [...prev, { command: '', output: { text: `[${editor.type}] Saved ${editor.path} successfully.`, isHTML: false }, cwd }]);
+        }
       }
     }
     setEditor(null);

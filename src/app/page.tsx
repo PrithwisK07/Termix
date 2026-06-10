@@ -54,7 +54,7 @@ const AsciiDonut = () => {
     <div className="flex flex-col items-center justify-center opacity-80 transition-opacity hover:opacity-100">
       <pre 
         ref={preRef} 
-        className="font-mono text-[10px] leading-[10px] sm:text-xs sm:leading-[12px]"
+        className="font-mono text-[10px] leading-2.5 sm:text-xs sm:leading-3"
         style={{ 
           // 1. Define the Sunset Gradient with a CSS Variable fallback for theme responsiveness
           backgroundImage: 'var(--color-donut, linear-gradient(180deg, #fde047 5%, #f97316 25%, #ef4444 50%, #be185d 75%, #7e22ce 95%))',
@@ -113,6 +113,110 @@ const GeditOverlay = ({ path, initialContent, onClose }: { path: string, initial
           spellCheck="false"
           autoFocus
         />
+      </div>
+    </div>
+  );
+};
+
+// --- MAILER (DIRECT MESSAGE GUI) ---
+const MailerOverlay = ({ onClose }: { onClose: (status?: string) => void }) => {
+  const [email, setEmail] = useState('');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [isSending, setIsSending] = useState(false);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !body) return;
+    
+    setIsSending(true);
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, subject, message: body })
+      });
+
+      if (!response.ok) throw new Error('Network response was not ok');
+      
+      setIsSending(false);
+      onClose('SENT'); // Tells the terminal to print the success message
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setIsSending(false);
+      // You could handle an error state here, but for now we'll just close it
+      onClose('ERROR'); 
+    }
+  };
+
+  return (
+    <div 
+      className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      onClick={(e) => e.stopPropagation()} 
+    >
+      <div className="bg-[#1e1e1e] flex flex-col rounded-xl border border-gray-600 shadow-2xl overflow-hidden font-sans w-full max-w-2xl">
+        {/* Header */}
+        <div className="bg-[#2d2d2d] px-4 py-2 flex justify-between items-center border-b border-gray-600">
+          <div className="flex gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-500 cursor-pointer hover:bg-red-400" onClick={() => onClose()} title="Discard Message" />
+            <div className="w-3 h-3 rounded-full bg-yellow-500 cursor-not-allowed" />
+            <div className="w-3 h-3 rounded-full bg-green-500 cursor-not-allowed" />
+          </div>
+          <span className="text-gray-300 text-sm font-mono">New Message - NullVoid Mailer</span>
+          <div className="w-16" /> {/* Spacer for centering */}
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSend} className="flex flex-col p-4 gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <input
+              type="email"
+              required
+              placeholder="Your Email"
+              className="flex-1 bg-[#2d2d2d] border border-gray-600 rounded px-3 py-2 text-gray-200 outline-none focus:border-blue-500 font-mono text-sm transition-colors"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={isSending}
+              autoFocus
+            />
+            <input
+              type="text"
+              placeholder="Subject"
+              className="flex-1 bg-[#2d2d2d] border border-gray-600 rounded px-3 py-2 text-gray-200 outline-none focus:border-blue-500 font-mono text-sm transition-colors"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              disabled={isSending}
+            />
+          </div>
+          
+          <textarea
+            required
+            placeholder="Type your message here..."
+            className="w-full h-48 bg-[#2d2d2d] border border-gray-600 rounded px-3 py-2 text-gray-200 outline-none focus:border-blue-500 font-mono text-sm resize-none custom-scrollbar transition-colors"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            disabled={isSending}
+          />
+          
+          <div className="flex justify-end gap-3 mt-2">
+            <button 
+              type="button" 
+              onClick={() => onClose()} 
+              className="px-4 py-2 text-sm font-mono text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+              disabled={isSending}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              disabled={isSending || !email || !body}
+              className="px-6 py-2 text-sm font-mono bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isSending ? 'Transmitting...' : 'Send Message'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -260,6 +364,11 @@ export default function TerminalUI() {
         <VimOverlay path={editor.path} initialContent={editor.content} onClose={closeEditor} />
       )}
 
+      {/* NEW: RENDER MAILER */}
+      {editor?.type === 'mailer' && (
+        <MailerOverlay onClose={closeEditor} />
+      )}
+
       {/* RENDER MAIN LAYOUT */}
       <div className={`max-w-7xl mx-auto h-[90vh] flex gap-4 lg:gap-8 ${editor?.type === 'vim' ? 'hidden' : 'flex'}`}>
         
@@ -291,9 +400,9 @@ export default function TerminalUI() {
                         {entry.output.component}
                       </div>
                     ) : entry.output.isHTML ? (
-                      <div className={`mt-1 whitespace-pre-wrap break-words ${entry.output.isError ? 'text-red-400' : ''}`} dangerouslySetInnerHTML={{ __html: entry.output.text }} />
+                      <div className={`mt-1 whitespace-pre-wrap wrap-break-word ${entry.output.isError ? 'text-red-400' : ''}`} dangerouslySetInnerHTML={{ __html: entry.output.text }} />
                     ) : (
-                      <div className={`mt-1 whitespace-pre-wrap break-words ${entry.output.isError ? 'text-red-400' : ''}`}>
+                      <div className={`mt-1 whitespace-pre-wrap wrap-break-word ${entry.output.isError ? 'text-red-400' : ''}`}>
                         {entry.output.text}
                       </div>
                     )
@@ -352,7 +461,7 @@ export default function TerminalUI() {
 
         {/* RIGHT COMPARTMENT: ASCII DONUT WIDGET */}
         {!pager && !editor && (
-          <div className="hidden lg:flex flex-col items-center justify-center w-[350px] shrink-0 border-l border-gray-700/30 pl-8 pointer-events-none">
+          <div className="hidden lg:flex flex-col items-center justify-center w-87.5 shrink-0 border-l border-gray-700/30 pl-8 pointer-events-none">
             <AsciiDonut />
           </div>
         )}
